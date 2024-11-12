@@ -16,7 +16,7 @@ If you've got a good starting point, this little CLI tool should give you respec
 
 ## Usage
 
-Run the `steam-gifs.exe` executable. It'll prompt you for a path to your source video, then ask for an output FPS. And that's it! A new video and GIF file will be output at the same location, with the same name as the source except post-fixed with `_steam.gif`.
+Run the [`steam-gifs.exe` executable](https://github.com/bscotch/steam-gifs/releases). It'll prompt you for a path to your source video, then ask for an output FPS. And that's it! A new video and GIF file will be output at the same location, with the same name as the source except post-fixed with `_steam.gif`.
 
 > [!WARNING]  
 > Output files are always overwritten, without confirmation. Make sure you have backups!
