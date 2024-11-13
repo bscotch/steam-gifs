@@ -14,6 +14,26 @@ For the best results, your source video should:
 
 If you've got a good starting point, this little CLI tool should give you respectable results!
 
+## How it works
+
+All this CLI tool does is run a series of ffmpeg operations on your source video, like this:
+
+```bash
+# Create a down-scaled video.
+# (Note that the -2 means autoscale the width, but round to an even number)
+ffmpeg -y -i source-video.mp4 -vf "scale=616:-2" source-video_steam.mp4
+
+# Create a color palette
+# (You can experiment with different FPS values)
+ffmpeg -y -i source-video_steam.mp4 -vf "fps=15,palettegen" palette.png
+
+# Use the down-scaled video and color palette to
+# generate a respectable GIF
+ffmpeg -y -i source-video_steam.mp4 -i palette.png -filter_complex "[0:v]fps=15[v];[v][1:v]paletteuse" source-video_steam.gif
+```
+
+You can run these commands yourself without needing this CLI tool at all. It just gets tedious and error-prone: this little program takes care of the annoying bits for you (changing the commands to match your video name and target FPS).
+
 ## Usage
 
 Run the [`steam-gifs.exe` executable](https://github.com/bscotch/steam-gifs/releases). It'll prompt you for a path to your source video, then ask for an output FPS. And that's it! A new video and GIF file will be output at the same location, with the same name as the source except post-fixed with `_steam.gif`.
