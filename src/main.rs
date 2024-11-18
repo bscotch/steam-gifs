@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 // Function to strip surrounding quotes if present
@@ -13,7 +13,9 @@ fn main() {
     print!("Path to the source video file: ");
     io::stdout().flush().unwrap();
     let mut input_path = String::new();
-    io::stdin().read_line(&mut input_path).expect("Failed to read input path");
+    io::stdin()
+        .read_line(&mut input_path)
+        .expect("Failed to read input path");
     let input_path = input_path.trim();
 
     // Strip surrounding quotes if any
@@ -32,20 +34,88 @@ fn main() {
     print!("Enter FPS (default is 15): ");
     io::stdout().flush().unwrap();
     let mut fps_input = String::new();
-    io::stdin().read_line(&mut fps_input).expect("Failed to read FPS");
+    io::stdin()
+        .read_line(&mut fps_input)
+        .expect("Failed to read FPS");
     let fps: u32 = fps_input.trim().parse().unwrap_or(15);
+
+    // Get the start time
+    print!("Enter the start time (HH:MM:SS, default is 00:00:00): ");
+    io::stdout().flush().unwrap();
+    let mut start_time_input = String::new();
+    io::stdin().read_line(&mut start_time_input).unwrap();
+    let start_time = if start_time_input.trim().is_empty() {
+        None
+    } else {
+        Some(start_time_input.trim())
+    };
+
+    // Get the end time time
+    print!("Enter the end time (HH:MM:SS, default to the video's end): ");
+    io::stdout().flush().unwrap();
+
+    let mut end_time_input = String::new();
+    io::stdin().read_line(&mut end_time_input).unwrap();
+    let end_time = if end_time_input.trim().is_empty() {
+        None
+    } else {
+        Some(end_time_input.trim())
+    };
+
+    // Get the crop filter
+    print!("Enter crop filter (width:height:x:y, defaults to entire area): ");
+    io::stdout().flush().unwrap();
+    let mut crop_filter_input = String::new();
+    io::stdin().read_line(&mut crop_filter_input).unwrap();
+    let crop_filter = if crop_filter_input.trim().is_empty() {
+        None
+    } else {
+        Some(crop_filter_input.trim())
+    };
+
+    // Get the number of colors from the user, defaulting to 128
+    print!("Enter number of colors (default is 90): ");
+    io::stdout().flush().unwrap();
+    let mut colors_input = String::new();
+    io::stdin()
+        .read_line(&mut colors_input)
+        .expect("Failed to read number of colors");
+    let colors: u32 = colors_input.trim().parse().unwrap_or(90);
 
     // Prepare output file names
     let steam_video = format!("{}_steam.mp4", input_path_str.trim_end_matches(".mp4"));
     let palette_file = input_path.with_file_name("palette.png");
     let gif_output = format!("{}_steam.gif", input_path_str.trim_end_matches(".mp4"));
 
-    // Run the ffmpeg commands
-    // 1. Scale the video
-    let scale_command = format!("ffmpeg -y -i {} -vf scale=616:-2 {}", input_path_str, steam_video);
-    println!("Running command: {}", scale_command);
+    let mut new_video_args = vec!["-y", "-i", input_path_str];
+
+    let mut vf_filters: Vec<&str> = vec![];
+
+    let crop_filter_str;
+    if let Some(crop) = crop_filter {
+        crop_filter_str = format!("crop={}", crop);
+        vf_filters.push(&crop_filter_str);
+    }
+    vf_filters.push("scale=616:-2");
+
+    let vf_filters_str = vf_filters.join(",");
+    new_video_args.push("-vf");
+    new_video_args.push(&vf_filters_str);
+
+    if let Some(start) = start_time {
+        new_video_args.push("-ss");
+        new_video_args.push(start);
+    }
+
+    if let Some(end) = end_time {
+        new_video_args.push("-to");
+        new_video_args.push(end);
+    }
+
+    new_video_args.push(&steam_video);
+
     let scale_status = Command::new("ffmpeg")
-        .args(&["-y", "-i", input_path_str, "-vf", "scale=616:-2", &steam_video])
+        .args(&new_video_args)
         .status()
         .expect("Failed to execute ffmpeg scaling");
 
@@ -56,12 +126,22 @@ fn main() {
 
     // 2. Generate the palette in the source video directory
     let palette_command = format!(
-        "ffmpeg -y -i {} -vf fps={},palettegen {}",
-        steam_video, fps, palette_file.display()
+        "ffmpeg -y -i {} -vf fps={},palettegen=max_colors={} {}",
+        steam_video,
+        fps,
+        colors,
+        palette_file.display()
     );
     println!("Running command: {}", palette_command);
     let palette_status = Command::new("ffmpeg")
-        .args(&["-y", "-i", &steam_video, "-vf", &format!("fps={},palettegen", fps), palette_file.to_str().unwrap()])
+        .args(&[
+            "-y",
+            "-i",
+            &steam_video,
+            "-vf",
+            &format!("fps={},palettegen=max_colors={}", fps, colors),
+            palette_file.to_str().unwrap(),
+        ])
         .status()
         .expect("Failed to execute ffmpeg palette generation");
 
@@ -71,11 +151,6 @@ fn main() {
     }
 
     // 3. Create the GIF using the palette
-    let gif_command = format!(
-        "ffmpeg -y -i {} -i {} -filter_complex [0:v]fps={}[v];[v][1:v]paletteuse {}",
-        steam_video, palette_file.display(), fps, gif_output
-    );
-    println!("Running command: {}", gif_command);
     let gif_status = Command::new("ffmpeg")
         .args(&[
             "-y",
