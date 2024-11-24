@@ -4,6 +4,7 @@
   import { assert } from "../lib/errors.js";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
+    computeDefaultVideoEditParams,
     createEditedVideo,
     loadVideoMetadata,
     supportedVideoExtensions,
@@ -18,7 +19,9 @@
   let videoMetadata: VideoMetadata | null = $state(null);
 
   let editedVideoPath: string | null = $state(null);
-  let editedVideoParams: EditedVideoParams = $state({ crop: {}, trim: {} });
+  let editedVideoParams: EditedVideoParams = $state(
+    computeDefaultVideoEditParams()
+  );
   let editedVideoMetadata: VideoMetadata | null = $state(null);
 
   let logs: string[] = $state([]);
@@ -48,18 +51,7 @@
       assert(videoPath, "No video file selected");
       videoMetadata = await loadVideoMetadata(videoPath);
       // Update the edit params
-      editedVideoParams = {
-        crop: {
-          x: 0,
-          y: 0,
-          width: videoMetadata.width,
-          height: videoMetadata.height,
-        },
-        trim: {
-          start: 0,
-          end: videoMetadata.duration,
-        },
-      };
+      editedVideoParams = computeDefaultVideoEditParams(videoMetadata);
     });
   }
 

@@ -168,3 +168,20 @@ export async function workingDir(): Promise<string> {
   }
   return `${cache}videos${sep()}`;
 }
+
+export function computeDefaultVideoEditParams(
+  videoMetadata?: VideoMetadata
+): EditedVideoParams {
+  return {
+    crop: {
+      x: 0,
+      y: 0,
+      width: videoMetadata?.width || 0,
+      height: videoMetadata?.height || 0,
+    },
+    trim: {
+      start: 0,
+      end: videoMetadata?.duration || 0,
+    },
+  };
+}
