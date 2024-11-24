@@ -1,4 +1,4 @@
-import { sep, tempDir } from "@tauri-apps/api/path";
+import { appCacheDir, sep } from "@tauri-apps/api/path";
 import { exists, mkdir, readFile } from "@tauri-apps/plugin-fs";
 import { Command } from "@tauri-apps/plugin-shell";
 import { assert } from "./errors.js";
@@ -35,7 +35,7 @@ export const supportedVideoExtensions = [
   "mov",
   "avi",
   "wmv",
-  "webm",
+  // "webm", // doesn't work -- can't probe etc
   "mkv",
   "flv",
   "vob",
@@ -162,5 +162,9 @@ function pathParts(path: string): {
 }
 
 export async function workingDir(): Promise<string> {
-  return `${await tempDir()}bscotch.steam-gifs${sep()}`;
+  let cache = await appCacheDir();
+  if (!cache.endsWith(sep())) {
+    cache += sep();
+  }
+  return `${cache}videos${sep()}`;
 }
