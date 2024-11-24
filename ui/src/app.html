@@ -130,10 +130,19 @@
           color: var(--color-button-outline);
           border-radius: 10px;
           padding-bottom: 3px;
+          user-select: none;
         }
         button.secondary {
           color: var(--color-text-secondary);
           border-color: var(--color-text-secondary);
+        }
+
+        input {
+          /* dark mode */
+          color-scheme: dark;
+        }
+        input[type="number"] {
+          font-family: var(--font-family-code);
         }
       }
     </style>

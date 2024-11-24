@@ -1,4 +1,4 @@
-export class VidyaError extends Error {
+export class SteamGifsError extends Error {
   constructor(message: string, asserter?: Function) {
     super(message);
     this.name = "Vidya";
@@ -7,6 +7,6 @@ export class VidyaError extends Error {
 
 export function assert(claim: any, message: string): asserts claim {
   if (!claim) {
-    throw new VidyaError(message, assert);
+    throw new SteamGifsError(message, assert);
   }
 }

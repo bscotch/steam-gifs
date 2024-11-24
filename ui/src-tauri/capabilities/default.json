@@ -10,6 +10,38 @@
     "shell:default",
     "fs:default",
     {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        {
+          "path": "$TEMP/bscotch.steam-gifs/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        {
+          "path": "$TEMP/bscotch.steam-gifs/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write",
+      "allow": [
+        {
+          "path": "$TEMP/bscotch.steam-gifs/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        {
+          "path": "$TEMP/bscotch.steam-gifs/*"
+        }
+      ]
+    },
+    {
       "identifier": "shell:allow-execute",
       "allow": [
         {

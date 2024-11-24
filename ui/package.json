@@ -1,8 +1,9 @@
 {
-  "name": "vidya",
+  "name": "@bscotch/steam-gifs",
   "version": "0.1.0",
   "description": "",
   "type": "module",
+  "private": true,
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

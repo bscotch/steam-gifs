@@ -4,17 +4,23 @@
   import { assert } from "../lib/errors.js";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
+    createEditedVideo,
     loadVideoMetadata,
+    supportedVideoExtensions,
     videoMetadataFields,
+    type EditedVideoParams,
     type VideoMetadata,
   } from "../lib/video.js";
 
   // import { invoke } from "@tauri-apps/api/core";
 
   let videoPath: string | null = $state(null);
-  let editedVideoPath: string | null = $state(null);
-
   let videoMetadata: VideoMetadata | null = $state(null);
+
+  let editedVideoPath: string | null = $state(null);
+  let editedVideoParams: EditedVideoParams = $state({ crop: {}, trim: {} });
+  let editedVideoMetadata: VideoMetadata | null = $state(null);
+
   let logs: string[] = $state([]);
 
   function log(message: string) {
@@ -37,27 +43,30 @@
         multiple: false,
         directory: false,
         title: "Choose a video file",
-        filters: [
-          {
-            name: "Videos",
-            extensions: [
-              // Most common video format extensions that might work
-              "mp4",
-              "mov",
-              "avi",
-              "wmv",
-              "webm",
-              "mkv",
-              "flv",
-              "vob",
-              "ogv",
-              "ogg",
-            ],
-          },
-        ],
+        filters: [{ name: "Videos", extensions: supportedVideoExtensions }],
       });
       assert(videoPath, "No video file selected");
       videoMetadata = await loadVideoMetadata(videoPath);
+      // Update the edit params
+      editedVideoParams = {
+        crop: {
+          x: 0,
+          y: 0,
+          width: videoMetadata.width,
+          height: videoMetadata.height,
+        },
+        trim: {
+          start: 0,
+          end: videoMetadata.duration,
+        },
+      };
+    });
+  }
+
+  async function editVideo() {
+    await logOnError(async () => {
+      editedVideoPath = await createEditedVideo(videoPath!, editedVideoParams);
+      editedVideoMetadata = await loadVideoMetadata(editedVideoPath);
     });
   }
 </script>
@@ -95,17 +104,76 @@
           <SteamVideo path={editedVideoPath} />
         {:else}
           <EmptyVideo
-            width={videoMetadata?.width}
-            height={videoMetadata?.height}
+            width={editedVideoMetadata?.width || videoMetadata?.width}
+            height={editedVideoMetadata?.height || videoMetadata?.height}
             text="Edited Video"
           />
+        {/if}
+
+        {#if videoMetadata}
+          <form class="details">
+            <label class="crop">
+              Crop
+              <input
+                title="x coordinate of the top-left corner"
+                name="x"
+                type="number"
+                placeholder="x"
+                bind:value={editedVideoParams.crop.x}
+              />
+              <input
+                title="y coordinate of the top-left corner"
+                name="y"
+                type="number"
+                placeholder="y"
+                bind:value={editedVideoParams.crop.y}
+              />
+              <input
+                title="width of the cropped area"
+                name="width"
+                type="number"
+                placeholder="width"
+                bind:value={editedVideoParams.crop.width}
+              />
+              <input
+                title="height of the cropped area"
+                name="height"
+                type="number"
+                placeholder="height"
+                bind:value={editedVideoParams.crop.height}
+              />
+            </label>
+
+            <label class="trim">
+              Trim
+              <input
+                title="start time (seconds)"
+                name="start"
+                type="number"
+                placeholder="start"
+                bind:value={editedVideoParams.trim.start}
+                max={editedVideoParams.trim.end}
+              />
+              <input
+                title="end time (seconds)"
+                name="end"
+                type="number"
+                placeholder="end"
+                bind:value={editedVideoParams.trim.end}
+                max={videoMetadata?.duration}
+                min={editedVideoParams.trim.start}
+              />
+            </label>
+
+            <button type="button" onclick={editVideo}>Apply Edits</button>
+          </form>
         {/if}
       </section>
     </div>
   {/key}
   <footer>
     <!-- LOGS -->
-    <section>
+    <section id="errors">
       {#each logs as log}
         <p>{log}</p>
       {/each}
@@ -135,18 +203,40 @@
     gap: 3px;
   }
   .details {
+    padding-inline: 12px;
+  }
+  #source .details {
     width: 100%;
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
   }
-  .details > ul {
+  #source .details > ul {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 3px;
+    justify-content: center;
   }
-  .details > ul > li > span {
+  #source .details > ul > li > span {
     color: var(--color-text-secondary);
-    font-family: var(--font-family-monospace);
+    font-family: var(--font-family-code);
+  }
+  #edited input {
+    width: 5em;
+    font-family: var(--font-family-code);
+  }
+  #edited label {
+    display: block;
+    font-family: var(--font-family-code);
+  }
+  #edited .details {
+    width: 100%;
+  }
+  #edited .details label {
+    margin-bottom: 6px;
+  }
+
+  #errors {
+    color: red;
   }
 </style>
