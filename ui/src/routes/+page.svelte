@@ -71,6 +71,8 @@
 
   async function editVideo() {
     await logOnError(async () => {
+      editedVideoPath = null;
+      editedVideoMetadata = null;
       editedVideoPath = await createEditedVideo(videoPath!, editedVideoParams);
       editedVideoMetadata = await loadVideoMetadata(editedVideoPath);
     });
