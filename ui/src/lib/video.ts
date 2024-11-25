@@ -139,6 +139,7 @@ export async function createEditedVideo(
   const ffmpegResult = await Command.create("ffmpeg", ffmpegArgs).execute();
   if (ffmpegResult.code !== 0) {
     console.error(ffmpegResult);
+    console.error(ffmpegResult.stderr);
   }
   assert(
     ffmpegResult.code === 0,
@@ -194,7 +195,26 @@ export async function createGif(
 }
 
 function secondsToFfmpegTimeString(seconds: number | string): string {
-  return new Date(Number(seconds) * 1000).toISOString().slice(11, 8);
+  // Create a HH:MM:SS string from a number of seconds
+  let timeString = "";
+  let remaining = Number(seconds);
+  const hours = Math.floor(remaining / 3600);
+  remaining -= hours * 3600;
+  const minutes = Math.floor(remaining / 60);
+  remaining -= minutes * 60;
+  const secondsInt = Math.floor(remaining);
+  if (hours > 0) {
+    timeString += `${hours}:`;
+  }
+  if (minutes < 10) {
+    timeString += "0";
+  }
+  timeString += `${minutes}:`;
+  if (secondsInt < 10) {
+    timeString += "0";
+  }
+  timeString += `${secondsInt}`;
+  return timeString;
 }
 
 function pathParts(path: string): {
