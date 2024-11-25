@@ -16,13 +16,15 @@ export const videoMetadataFields = [
   "fps",
 ] as const;
 
+export interface Crop {
+  left?: number;
+  right?: number;
+  top?: number;
+  bottom?: number;
+}
+
 export interface EditedVideoParams {
-  crop: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  crop: Crop;
   trim: {
     start: number;
     end: number;
@@ -105,17 +107,29 @@ export async function createEditedVideo(
   let outNameSuffix = "-steam";
   const ffmpegArgs: string[] = ["-i", sourcePath];
   let filters: string = "";
+  let widthAfterCrop = sourceMetadata.width;
   if (
-    edits.crop.x !== 0 ||
-    edits.crop.y !== 0 ||
-    edits.crop.width !== sourceMetadata.width ||
-    edits.crop.height !== sourceMetadata.height
+    !edits.crop.left ||
+    !edits.crop.right ||
+    !edits.crop.top ||
+    !edits.crop.bottom
   ) {
-    const cropString = `${edits.crop.width}:${edits.crop.height}:${edits.crop.x}:${edits.crop.y}`;
+    widthAfterCrop =
+      sourceMetadata.width - orZero(edits.crop.left) - orZero(edits.crop.right);
+    const height =
+      sourceMetadata.height -
+      orZero(edits.crop.top) -
+      orZero(edits.crop.bottom);
+    const cropString = `${widthAfterCrop}:${height}:${edits.crop.left || 0}:${
+      edits.crop.top || 0
+    }`;
     filters += `crop=${cropString},`;
     outNameSuffix += `-${cropString}`;
   }
-  filters += "scale=616:-2";
+  // The output should be UP TO 616 pixels for Steam, but can be
+  // smaller if the source would be (after cropping).
+  const scaledWidth = Math.min(widthAfterCrop, 616);
+  filters += `scale=${scaledWidth}:-2`;
   ffmpegArgs.push("-vf", filters);
   if (edits.trim.start !== 0) {
     const start = secondsToFfmpegTimeString(edits.trim.start);
@@ -131,9 +145,10 @@ export async function createEditedVideo(
   console.log("Creating directory", outDir);
   await mkdir(outDir, { recursive: true });
   console.log("Created directory", outDir);
-  let outPath = `${outDir}${sep()}${sourceParts.name}${outNameSuffix}.${
-    sourceParts.ext
-  }`;
+  let outPath = `${outDir}${sep()}${sourceParts.name}${outNameSuffix.replaceAll(
+    ":",
+    "."
+  )}.${sourceParts.ext}`;
   ffmpegArgs.push(outPath);
   console.log("Preparing to run ffmpeg with args", ffmpegArgs);
   const ffmpegResult = await Command.create("ffmpeg", ffmpegArgs).execute();
@@ -244,12 +259,7 @@ export function computeDefaultVideoEditParams(
   videoMetadata?: VideoMetadata
 ): EditedVideoParams {
   return {
-    crop: {
-      x: 0,
-      y: 0,
-      width: videoMetadata?.width || 0,
-      height: videoMetadata?.height || 0,
-    },
+    crop: {},
     trim: {
       start: 0,
       end: videoMetadata?.duration || 0,
@@ -271,7 +281,7 @@ async function computeGifOutputPath(
     if (!value) {
       continue;
     }
-    suffix += `-${field}:${value}`;
+    suffix += `-${field}.${value}`;
   }
   return `${await workingDir()}${sourceParts.name}${suffix}.${extension}`;
 }
@@ -279,4 +289,8 @@ async function computeGifOutputPath(
 export async function pathToObjectUrl(path: string): Promise<string> {
   const data = await readFile(path);
   return URL.createObjectURL(new Blob([data]));
+}
+
+export function orZero(val: number | undefined | null): number {
+  return val || 0;
 }
