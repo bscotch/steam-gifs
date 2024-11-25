@@ -2,14 +2,18 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import EmptyVideo from "../lib/EmptyVideo.svelte";
   import { assert } from "../lib/errors.js";
+  import GifSettings from "../lib/GifSettings.svelte";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
     computeDefaultVideoEditParams,
     createEditedVideo,
+    createGif,
     loadVideoMetadata,
+    pathToObjectUrl,
     supportedVideoExtensions,
     videoMetadataFields,
     type EditedVideoParams,
+    type GifOutputSettings,
     type VideoMetadata,
   } from "../lib/video.js";
 
@@ -23,6 +27,13 @@
     computeDefaultVideoEditParams()
   );
   let editedVideoMetadata: VideoMetadata | null = $state(null);
+
+  let gifSettings: GifOutputSettings = $state({ colors: 90, fps: 20 });
+  let createdGifs: {
+    path: string;
+    objectUrl: string;
+    settings: GifOutputSettings;
+  }[] = $state([]);
 
   let logs: string[] = $state([]);
 
@@ -52,6 +63,9 @@
       videoMetadata = await loadVideoMetadata(videoPath);
       // Update the edit params
       editedVideoParams = computeDefaultVideoEditParams(videoMetadata);
+      editedVideoPath = null;
+      editedVideoMetadata = null;
+      createdGifs = [];
     });
   }
 
@@ -162,6 +176,35 @@
         {/if}
       </section>
     </div>
+    {#if editedVideoPath}
+      <div id="gifs">
+        <section class="gif">
+          <GifSettings
+            {...gifSettings}
+            maxFps={editedVideoMetadata?.fps || 30}
+            height={editedVideoMetadata?.height}
+            width={editedVideoMetadata?.width}
+            generate={async (config) => {
+              await logOnError(async () => {
+                assert(editedVideoPath, "No edited video to generate GIF from");
+                const settings = { ...config };
+                const outfile = await createGif(editedVideoPath!, settings);
+                createdGifs.push({
+                  path: outfile,
+                  objectUrl: await pathToObjectUrl(outfile),
+                  settings,
+                });
+              });
+            }}
+          />
+        </section>
+        {#each createdGifs as gif (gif.path)}
+          <section class="gif">
+            <img src={gif.objectUrl} alt="GIF" />
+          </section>
+        {/each}
+      </div>
+    {/if}
   {/key}
   <footer>
     <!-- LOGS -->
@@ -182,13 +225,18 @@
     width: 100dvw;
     padding: 6px;
   }
-  #videos {
+  #videos,
+  #gifs {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
     width: 100%;
   }
-  .video {
+  #gifs {
+    margin-top: 12px;
+  }
+  .video,
+  .gif {
     display: flex;
     flex-direction: column;
     align-items: center;

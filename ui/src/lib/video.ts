@@ -29,6 +29,11 @@ export interface EditedVideoParams {
   };
 }
 
+export interface GifOutputSettings {
+  colors: number;
+  fps: number;
+}
+
 export const supportedVideoExtensions = [
   "mp4",
   // Not actually sure the rest of these work...
@@ -142,6 +147,52 @@ export async function createEditedVideo(
   return outPath;
 }
 
+export async function createGif(
+  sourcePath: string,
+  settings: GifOutputSettings
+): Promise<string> {
+  const palettePath = await computeGifOutputPath(sourcePath, settings, "png");
+  const gifPath = await computeGifOutputPath(sourcePath, settings);
+
+  // Create the palette file
+  const ffmpegPaletteArgs = [
+    "-i",
+    sourcePath,
+    "-vf",
+    `fps=${settings.fps},palettegen=max_colors=${settings.colors}`,
+    palettePath,
+  ];
+  console.log("Preparing to run ffmpeg with args", ffmpegPaletteArgs);
+  let ffmpegResult = await Command.create(
+    "ffmpeg",
+    ffmpegPaletteArgs
+  ).execute();
+  console.log("ffmpeg result", ffmpegResult);
+  assert(
+    ffmpegResult.code === 0,
+    "Failed to create palette. Make sure ffmpeg is available in your PATH."
+  );
+
+  // Create the GIF
+  const ffmpegGifArgs = [
+    "-i",
+    sourcePath,
+    "-i",
+    palettePath,
+    "-filter_complex",
+    `[0:v]fps=${settings.fps}[v];[v][1:v]paletteuse`,
+    gifPath,
+  ];
+  console.log("Preparing to run ffmpeg with args", ffmpegGifArgs);
+  ffmpegResult = await Command.create("ffmpeg", ffmpegGifArgs).execute();
+  console.log("ffmpeg result", ffmpegResult);
+  assert(
+    ffmpegResult.code === 0,
+    "Failed to create GIF. Make sure ffmpeg is available in your PATH."
+  );
+  return gifPath;
+}
+
 function secondsToFfmpegTimeString(seconds: number | string): string {
   return new Date(Number(seconds) * 1000).toISOString().slice(11, 8);
 }
@@ -184,4 +235,28 @@ export function computeDefaultVideoEditParams(
       end: videoMetadata?.duration || 0,
     },
   };
+}
+
+/**
+ * Given the path to the original video, create a path in the cache directory for the palette file or final GIF, based on the settings.
+ */
+async function computeGifOutputPath(
+  sourcePath: string,
+  config: GifOutputSettings,
+  extension = "gif"
+) {
+  const sourceParts = pathParts(sourcePath);
+  let suffix = "";
+  for (const [field, value] of Object.entries(config)) {
+    if (!value) {
+      continue;
+    }
+    suffix += `-${field}:${value}`;
+  }
+  return `${await workingDir()}${sourceParts.name}${suffix}.${extension}`;
+}
+
+export async function pathToObjectUrl(path: string): Promise<string> {
+  const data = await readFile(path);
+  return URL.createObjectURL(new Blob([data]));
 }
