@@ -77,6 +77,32 @@
       editedVideoMetadata = await loadVideoMetadata(editedVideoPath);
     });
   }
+
+  /** Make sure that the crop params all make sense together. */
+  function fixCropParams() {
+    // Set undefineds to defaults
+    if (!editedVideoParams.crop.x) {
+      editedVideoParams.crop.x = 0;
+    }
+    if (!editedVideoParams.crop.y) {
+      editedVideoParams.crop.y = 0;
+    }
+    if (!editedVideoParams.crop.width) {
+      editedVideoParams.crop.width = videoMetadata!.width;
+    }
+    if (!editedVideoParams.crop.height) {
+      editedVideoParams.crop.height = videoMetadata!.height;
+    }
+    // Make sure that the x,y,width,height are within the bounds
+    editedVideoParams.crop.width = Math.min(
+      editedVideoParams.crop.width,
+      videoMetadata!.width - editedVideoParams.crop.x
+    );
+    editedVideoParams.crop.height = Math.min(
+      editedVideoParams.crop.height,
+      videoMetadata!.height - editedVideoParams.crop.y
+    );
+  }
 </script>
 
 <main class="container">
@@ -128,6 +154,9 @@
                 type="number"
                 placeholder="x"
                 bind:value={editedVideoParams.crop.x}
+                oninput={() => {
+                  fixCropParams();
+                }}
               />
               <input
                 title="y coordinate of the top-left corner"
@@ -135,6 +164,9 @@
                 type="number"
                 placeholder="y"
                 bind:value={editedVideoParams.crop.y}
+                oninput={() => {
+                  fixCropParams();
+                }}
               />
               <input
                 title="width of the cropped area"
@@ -142,6 +174,9 @@
                 type="number"
                 placeholder="width"
                 bind:value={editedVideoParams.crop.width}
+                oninput={() => {
+                  fixCropParams();
+                }}
               />
               <input
                 title="height of the cropped area"
@@ -149,6 +184,9 @@
                 type="number"
                 placeholder="height"
                 bind:value={editedVideoParams.crop.height}
+                oninput={() => {
+                  fixCropParams();
+                }}
               />
             </label>
 
