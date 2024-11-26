@@ -220,6 +220,7 @@ function secondsToFfmpegTimeString(seconds: number | string): string {
   const minutes = Math.floor(remaining / 60);
   remaining -= minutes * 60;
   const secondsInt = Math.floor(remaining);
+  remaining -= secondsInt;
   if (hours > 0) {
     timeString += `${hours}:`;
   }
@@ -231,6 +232,9 @@ function secondsToFfmpegTimeString(seconds: number | string): string {
     timeString += "0";
   }
   timeString += `${secondsInt}`;
+  if (remaining) {
+    timeString += `.${Math.round(remaining * 1000)}`;
+  }
   return timeString;
 }
 

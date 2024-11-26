@@ -251,6 +251,7 @@
                   type="number"
                   placeholder="start"
                   bind:value={nextGifParams.trim.start}
+                  min="0"
                   max={nextGifParams.trim.end}
                 />
                 <label for="trim:end" class="trim"> End </label>
@@ -307,6 +308,14 @@
       {/if}
     </section>
 
+    <!-- LOGS -->
+    <section id="errors">
+      {#each logs as log}
+        <p>{log}</p>
+      {/each}
+    </section>
+
+    <!-- GIFS -->
     {#if createdGifs.length}
       <ul id="gifs" class="reset">
         {#each createdGifs as gif, i (gif)}
@@ -344,12 +353,6 @@
       </ul>
     {/if}
   {/key}
-  <!-- LOGS -->
-  <section id="errors">
-    {#each logs as log}
-      <p>{log}</p>
-    {/each}
-  </section>
   <footer>
     <a
       title="Visit this project on GitHub"
