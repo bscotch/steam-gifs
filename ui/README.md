@@ -1,4 +1,4 @@
-# Steam Store Page GIF Generator (UI Version)
+# Steam Store Page GIF Generator (GUI Version)
 
 _For the CLI version, [see its README](../cli/README.md)._
 
