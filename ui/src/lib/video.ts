@@ -1,5 +1,5 @@
 import { appCacheDir, sep } from "@tauri-apps/api/path";
-import { exists, mkdir, readFile } from "@tauri-apps/plugin-fs";
+import { exists, mkdir, readFile, remove } from "@tauri-apps/plugin-fs";
 import { Command } from "@tauri-apps/plugin-shell";
 import { assert } from "./errors.js";
 
@@ -257,6 +257,11 @@ export async function workingDir(): Promise<string> {
   return `${cache}videos${sep()}`;
 }
 
+export async function clearWorkingDir(): Promise<void> {
+  const dir = await workingDir();
+  await remove(dir, { recursive: true });
+}
+
 export function computeDefaultVideoEditParams(
   videoMetadata?: VideoMetadata
 ): GifOutputParams {
@@ -307,4 +312,24 @@ export async function pathToObjectUrl(
 
 export function orZero(val: number | undefined | null): number {
   return val || 0;
+}
+
+export async function assertFfmpegExists(): Promise<void> {
+  // Get the ffmpeg version or error out
+  const ffmpegResult = await Command.create("ffmpeg", ["-version"]).execute();
+  assert(
+    ffmpegResult.code === 0,
+    `ffmpeg not found. Make sure it's installed and discoverable in your PATH.`
+  );
+  console.log("Found ffmpeg:");
+  console.log(ffmpegResult.stdout);
+
+  // Check for ffprobe
+  const ffprobeResult = await Command.create("ffprobe", ["-version"]).execute();
+  assert(
+    ffprobeResult.code === 0,
+    `ffprobe not found. Make sure it's installed and discoverable in your PATH.`
+  );
+  console.log("Found ffprobe:");
+  console.log(ffprobeResult.stdout);
 }

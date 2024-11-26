@@ -5,6 +5,8 @@
   import GithubIcon from "../lib/icons/GithubIcon.svelte";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
+    assertFfmpegExists,
+    clearWorkingDir,
     computeDefaultVideoEditParams,
     createEditedVideo,
     createGif,
@@ -18,10 +20,15 @@
     type VideoMetadata,
   } from "../lib/video.js";
 
-  // import { invoke } from "@tauri-apps/api/core";
+  // Clean up whatever happened last time
+  clearWorkingDir().catch((err) => log(err.message));
 
   let videoPath: string | null = $state(null);
   let videoMetadata: VideoMetadata | null = $state(null);
+  let ffmpegDiscovered: boolean = $state(false);
+  assertFfmpegExists()
+    .then(() => (ffmpegDiscovered = true))
+    .catch((err) => log(err.message));
 
   let nextGifParams: GifOutputParams = $state(computeDefaultVideoEditParams());
   let awaitingGif = $state(false);
@@ -140,9 +147,13 @@
           <SteamVideo path={videoPath} crop={nextGifParams.crop} />
         {:else}
           <EmptyVideo>
-            <button type="button" onclick={chooseVideo}
-              >Choose Source Video</button
-            >
+            {#if ffmpegDiscovered}
+              <button type="button" onclick={chooseVideo}
+                >Choose Source Video</button
+              >
+            {:else}
+              Checking for ffmpeg and ffprobe...
+            {/if}
           </EmptyVideo>
         {/if}
       </section>
