@@ -6,6 +6,8 @@ _See the [General Info & Requirements](../README.md)._
 
 Download it from the [latest GitHub Release](https://github.com/bscotch/steam-gifs/releases).
 
+https://github.com/user-attachments/assets/6a253723-0861-4f7b-acd8-df8869d422f3
+
 ## Requirements
 
 - Only runs on Windows!
