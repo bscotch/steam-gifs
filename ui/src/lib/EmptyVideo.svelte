@@ -1,16 +1,17 @@
 <script lang="ts">
-  let {
-    width,
-    height,
-    text,
-  }: { width?: number; height?: number; text: string } = $props();
+  import type { Snippet } from "svelte";
+
+  let { children }: { children: Snippet } = $props();
 </script>
 
-<p style={`aspect-ratio: ${width || 16} / ${height || 9}`}>{text}</p>
+<form>
+  {@render children()}
+</form>
 
 <style>
-  p {
+  form {
     width: 100%;
+    aspect-ratio: 16 / 9;
     max-width: var(--steam-description-width);
     display: flex;
     justify-content: center;

@@ -1,8 +1,7 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
+  import Bytes from "../lib/Bytes.svelte";
   import EmptyVideo from "../lib/EmptyVideo.svelte";
-  import { assert } from "../lib/errors.js";
-  import GifSettings from "../lib/GifSettings.svelte";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
     computeDefaultVideoEditParams,
@@ -10,11 +9,11 @@
     createGif,
     loadVideoMetadata,
     orZero,
+    pathParts,
     pathToObjectUrl,
     supportedVideoExtensions,
     videoMetadataFields,
-    type EditedVideoParams,
-    type GifOutputSettings,
+    type GifOutputParams,
     type VideoMetadata,
   } from "../lib/video.js";
 
@@ -23,32 +22,32 @@
   let videoPath: string | null = $state(null);
   let videoMetadata: VideoMetadata | null = $state(null);
 
-  let editedVideoPath: string | null = $state(null);
-  let editedVideoParams: EditedVideoParams = $state(
-    computeDefaultVideoEditParams()
-  );
-  let editedVideoMetadata: VideoMetadata | null = $state(null);
+  let nextGifParams: GifOutputParams = $state(computeDefaultVideoEditParams());
+  let awaitingGif = $state(false);
   let cropDims: { width: number; height: number } | null = $derived.by(() => {
     if (videoMetadata) {
       return {
         width:
           videoMetadata.width -
-          orZero(editedVideoParams.crop.left) -
-          orZero(editedVideoParams.crop.right),
+          orZero(nextGifParams.crop.left) -
+          orZero(nextGifParams.crop.right),
         height:
           videoMetadata.height -
-          orZero(editedVideoParams.crop.top) -
-          orZero(editedVideoParams.crop.bottom),
+          orZero(nextGifParams.crop.top) -
+          orZero(nextGifParams.crop.bottom),
       };
     }
     return null;
   });
 
-  let gifSettings: GifOutputSettings = $state({ colors: 90, fps: 20 });
   let createdGifs: {
-    path: string;
-    objectUrl: string;
-    settings: GifOutputSettings;
+    gifPath: string;
+    gifObjectUrl: string;
+    gifBytes: number;
+    videoPath: string;
+    videoObjectUrl: string;
+    videoBytes: number;
+    settings: GifOutputParams;
   }[] = $state([]);
 
   let logs: string[] = $state([]);
@@ -69,205 +68,252 @@
 
   async function chooseVideo() {
     await logOnError(async () => {
-      videoPath = await open({
+      const newVideoPath = await open({
         multiple: false,
         directory: false,
         title: "Choose a video file",
         filters: [{ name: "Videos", extensions: supportedVideoExtensions }],
       });
-      assert(videoPath, "No video file selected");
+      if (!newVideoPath) return;
+      videoPath = newVideoPath;
       videoMetadata = await loadVideoMetadata(videoPath);
       // Update the edit params
-      editedVideoParams = computeDefaultVideoEditParams(videoMetadata);
-      editedVideoPath = null;
-      editedVideoMetadata = null;
+      nextGifParams = computeDefaultVideoEditParams(videoMetadata);
       createdGifs = [];
     });
   }
 
-  async function editVideo() {
+  async function createNextGif() {
+    awaitingGif = true;
     await logOnError(async () => {
-      editedVideoPath = null;
-      editedVideoMetadata = null;
-      editedVideoPath = await createEditedVideo(videoPath!, editedVideoParams);
-      editedVideoMetadata = await loadVideoMetadata(editedVideoPath);
+      const settings = $state.snapshot(nextGifParams);
+      console.log("Creating GIF with settings", settings);
+      const editedVideoPath = await createEditedVideo(videoPath!, settings);
+      const outputGifPath = await createGif(editedVideoPath, settings);
+      const [gifData, videoData] = await Promise.all([
+        pathToObjectUrl(outputGifPath),
+        pathToObjectUrl(editedVideoPath),
+      ]);
+      createdGifs.push({
+        gifPath: outputGifPath,
+        gifObjectUrl: gifData.objectUrl,
+        gifBytes: gifData.data.length,
+        videoPath: editedVideoPath,
+        videoObjectUrl: videoData.objectUrl,
+        videoBytes: videoData.data.length,
+        settings,
+      });
     });
+    awaitingGif = false;
   }
 
   /** Make sure that the crop params all make sense together. */
   function fixCropParams() {
     // Set undefineds to defaults
-    console.log({ ...editedVideoParams.crop });
     for (const key of ["left", "right", "top", "bottom"] as const) {
-      if (!editedVideoParams.crop[key]) {
-        editedVideoParams.crop[key] = undefined;
+      if (!nextGifParams.crop[key]) {
+        nextGifParams.crop[key] = undefined;
       }
     }
     if (cropDims && cropDims.width <= 0) {
       // Not obvious how to fix, just reset
-      editedVideoParams.crop.right = undefined;
-      editedVideoParams.crop.left = undefined;
+      nextGifParams.crop.right = undefined;
+      nextGifParams.crop.left = undefined;
     }
     if (cropDims && cropDims.height <= 0) {
       // Not obvious how to fix, just reset
-      editedVideoParams.crop.top = undefined;
-      editedVideoParams.crop.bottom = undefined;
+      nextGifParams.crop.top = undefined;
+      nextGifParams.crop.bottom = undefined;
     }
   }
 </script>
 
 <main class="container">
   {#key videoPath}
-    <div id="videos">
-      <section id="source" class="video">
+    <section id="source">
+      <section id="source-video">
         {#if videoPath}
-          <SteamVideo path={videoPath} crop={editedVideoParams.crop} />
+          <SteamVideo path={videoPath} crop={nextGifParams.crop} />
         {:else}
-          <EmptyVideo text="Source Video" />
+          <EmptyVideo>
+            <button type="button" onclick={chooseVideo}
+              >Choose Source Video</button
+            >
+          </EmptyVideo>
         {/if}
-        <section class="details">
+      </section>
+      {#if videoPath}
+        <section id="editor">
+          <!-- Chooser -->
+
+          <!-- Source Details -->
           {#if videoMetadata}
-            <ul class="reset">
-              {#each videoMetadataFields as field}
-                <li>
-                  <b>{field}:</b> <span>{videoMetadata[field]}</span>
-                </li>
-              {/each}
-            </ul>
+            <section id="source-details">
+              <h2>
+                <button
+                  id="change-source"
+                  title="Change Source Video"
+                  class:secondary={!!videoPath}
+                  type="button"
+                  onclick={chooseVideo}>⚙️&#xFE0E;</button
+                >
+                Source
+              </h2>
+              [
+              <ul class="reset">
+                {#each videoMetadataFields as field}
+                  <li>
+                    <b>{field}:</b> <span>{videoMetadata[field]}</span>
+                  </li>
+                {/each}
+              </ul>
+              ]
+            </section>
           {/if}
-          <button
-            class:secondary={!!videoPath}
-            type="button"
-            onclick={chooseVideo}
-            >{videoPath ? "Change" : "Choose"} Source Video</button
-          >
+
+          {#if videoMetadata}
+            <form class="details">
+              <div id="edits">
+                <label for="crop:left"> <b>Crop:</b> Left </label>
+                <input
+                  id="crop:left"
+                  type="number"
+                  bind:value={nextGifParams.crop.left}
+                  title="Left (Pixels)"
+                  placeholder="left"
+                  min="0"
+                  step="1"
+                  oninput={() => {
+                    fixCropParams();
+                  }}
+                />
+                <label for="crop:right"> Right </label>
+                <input
+                  id="crop:right"
+                  type="number"
+                  bind:value={nextGifParams.crop.right}
+                  title="Right (Pixels)"
+                  placeholder="right"
+                  min="0"
+                  step="1"
+                  oninput={() => {
+                    fixCropParams();
+                  }}
+                />
+                <label for="crop:top"> Top </label>
+                <input
+                  id="crop:top"
+                  type="number"
+                  bind:value={nextGifParams.crop.top}
+                  title="Top (Pixels)"
+                  placeholder="top"
+                  min="0"
+                  step="1"
+                  oninput={() => {
+                    fixCropParams();
+                  }}
+                />
+                <label for="crop:bottom"> Bottom </label>
+                <input
+                  id="crop:bottom"
+                  type="number"
+                  bind:value={nextGifParams.crop.bottom}
+                  title="Bottom (Pixels)"
+                  placeholder="bottom"
+                  min="0"
+                  step="1"
+                  oninput={() => {
+                    fixCropParams();
+                  }}
+                />
+                <label for="trim:start" class="trim">
+                  <b>Trim:</b> Start
+                </label>
+                <input
+                  id="trim:start"
+                  title="start time (seconds)"
+                  name="start"
+                  type="number"
+                  placeholder="start"
+                  bind:value={nextGifParams.trim.start}
+                  max={nextGifParams.trim.end}
+                />
+                <label for="trim:end" class="trim"> End </label>
+                <input
+                  id="trim:end"
+                  title="end time (seconds)"
+                  name="end"
+                  type="number"
+                  placeholder="end"
+                  bind:value={nextGifParams.trim.end}
+                  max={videoMetadata?.duration}
+                  min={nextGifParams.trim.start}
+                />
+                <label for="input:gif-maxcolors"> <b>Colors</b> </label>
+                <input
+                  id="input:gif-maxcolors"
+                  name="colors"
+                  type="number"
+                  title="Max Colors"
+                  bind:value={nextGifParams.colors}
+                  max="256"
+                  min="2"
+                  step="1"
+                  placeholder="colors"
+                />
+                <!-- Placeholder for Grid -->
+                <span></span><span></span>
+                <label for="input:gif-fps"> <b>FPS</b> </label>
+                <input
+                  id="input:gif-fps"
+                  name="fps"
+                  type="number"
+                  title="Frames Per Second"
+                  bind:value={nextGifParams.fps}
+                  max={videoMetadata.fps || 30}
+                  min="1"
+                  step="1"
+                  placeholder="fps"
+                />
+
+                <!-- Placeholder for Grid -->
+                <span></span><span></span>
+                <button
+                  class:secondary={awaitingGif}
+                  disabled={awaitingGif}
+                  type="button"
+                  onclick={createNextGif}
+                  >{awaitingGif ? "Working..." : "Create GIF"}</button
+                >
+              </div>
+            </form>
+          {/if}
         </section>
-      </section>
+      {/if}
+    </section>
 
-      <section id="edited" class="video">
-        {#if editedVideoPath}
-          <SteamVideo path={editedVideoPath} />
-        {:else}
-          <EmptyVideo
-            width={editedVideoMetadata?.width || videoMetadata?.width}
-            height={editedVideoMetadata?.height || videoMetadata?.height}
-            text="Edited Video"
-          />
-        {/if}
-
-        {#if videoMetadata}
-          <form class="details">
-            <div id="edits">
-              <label for="crop:left"> <b>Crop</b> Left </label>
-              <input
-                id="crop:left"
-                type="number"
-                bind:value={editedVideoParams.crop.left}
-                title="Left (Pixels)"
-                placeholder="left"
-                min="0"
-                step="1"
-                oninput={() => {
-                  fixCropParams();
-                }}
-              />
-              <label for="crop:right"> Right </label>
-              <input
-                id="crop:right"
-                type="number"
-                bind:value={editedVideoParams.crop.right}
-                title="Right (Pixels)"
-                placeholder="right"
-                min="0"
-                step="1"
-                oninput={() => {
-                  fixCropParams();
-                }}
-              />
-              <label for="crop:top"> Top </label>
-              <input
-                id="crop:top"
-                type="number"
-                bind:value={editedVideoParams.crop.top}
-                title="Top (Pixels)"
-                placeholder="top"
-                min="0"
-                step="1"
-                oninput={() => {
-                  fixCropParams();
-                }}
-              />
-              <label for="crop:bottom"> Bottom </label>
-              <input
-                id="crop:bottom"
-                type="number"
-                bind:value={editedVideoParams.crop.bottom}
-                title="Bottom (Pixels)"
-                placeholder="bottom"
-                min="0"
-                step="1"
-                oninput={() => {
-                  fixCropParams();
-                }}
-              />
-              <label for="trim:start" class="trim">
-                <b>Trim</b> Start
-              </label>
-              <input
-                id="trim:start"
-                title="start time (seconds)"
-                name="start"
-                type="number"
-                placeholder="start"
-                bind:value={editedVideoParams.trim.start}
-                max={editedVideoParams.trim.end}
-              />
-              <label for="trim:end" class="trim"> End </label>
-              <input
-                id="trim:end"
-                title="end time (seconds)"
-                name="end"
-                type="number"
-                placeholder="end"
-                bind:value={editedVideoParams.trim.end}
-                max={videoMetadata?.duration}
-                min={editedVideoParams.trim.start}
-              />
-            </div>
-
-            <button type="button" onclick={editVideo}>Apply Edits</button>
-          </form>
-        {/if}
-      </section>
-    </div>
-    {#if editedVideoPath}
-      <div id="gifs">
-        <section class="gif">
-          <GifSettings
-            {...gifSettings}
-            maxFps={editedVideoMetadata?.fps || 30}
-            height={editedVideoMetadata?.height}
-            width={editedVideoMetadata?.width}
-            generate={async (config) => {
-              await logOnError(async () => {
-                assert(editedVideoPath, "No edited video to generate GIF from");
-                const settings = { ...config };
-                const outfile = await createGif(editedVideoPath!, settings);
-                createdGifs.push({
-                  path: outfile,
-                  objectUrl: await pathToObjectUrl(outfile),
-                  settings,
-                });
-              });
-            }}
-          />
-        </section>
-        {#each createdGifs as gif (gif.path)}
-          <section class="gif">
-            <img src={gif.objectUrl} alt="GIF" />
-          </section>
+    {#if createdGifs.length}
+      <ul id="gifs" class="reset">
+        {#each createdGifs as gif (gif.gifPath)}
+          <li class="gif">
+            <img src={gif.gifObjectUrl} alt="GIF" />
+            <p>
+              💾 <a
+                href={gif.gifObjectUrl}
+                download={pathParts(gif.gifPath).base}
+              >
+                GIF (<Bytes bytes={gif.gifBytes} />)
+              </a>
+              <a
+                href={gif.videoObjectUrl}
+                download={pathParts(gif.videoPath).base}
+              >
+                MP4 (<Bytes bytes={gif.videoBytes} />)
+              </a>
+            </p>
+          </li>
         {/each}
-      </div>
+      </ul>
     {/if}
   {/key}
   <footer>
@@ -286,48 +332,53 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100dvw;
     padding: 6px;
+    width: 100dvw;
+    overflow-x: none;
   }
-  #videos,
-  #gifs {
+  #source {
     display: grid;
+    width: 100%;
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    width: 100%;
   }
-  #gifs {
-    margin-top: 12px;
+  #source-video {
+    margin-right: 12px;
   }
-  .video,
-  .gif {
+
+  #editor {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 3px;
+    gap: 12px;
   }
-  .details {
-    padding-inline: 12px;
-  }
-  #source .details {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  #source .details > ul {
+
+  #source-details {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 3px;
-    justify-content: center;
   }
-  #source .details > ul > li > span {
-    color: var(--color-text-secondary);
+  #source-details h2 {
+    font-size: 1em;
+  }
+  #source-details ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #source-details ul span {
     font-family: var(--font-family-code);
   }
-  #source .details button {
-    /* Have it be its normal size */
-    align-self: center;
+
+  #change-source {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .details {
+    padding-inline: 12px;
+  }
+  .details button {
+    margin-top: 6px;
   }
   #edits {
     display: grid;
@@ -344,26 +395,35 @@
     /* align right inside grid */
     text-align: right;
   }
-  #edited input {
-    width: 5em;
-    font-family: var(--font-family-code);
+
+  #gifs {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
-  #edited label {
-    display: block;
-    font-family: var(--font-family-code);
+  .gif {
+    position: relative;
   }
-  #edited .details {
-    width: 100%;
-    display: grid;
-    grid-template-columns: max-content 1fr;
+  .gif p {
+    display: inline-block;
+    visibility: hidden;
+    text-align: right;
+    position: absolute;
+    padding: 3px;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom-left-radius: 10px;
+    top: 0;
+    right: 0;
   }
-  #edited .details button {
-    /* Don't stretch, and put right in center */
-    justify-self: center;
-    align-self: center;
+  .gif:has(> img:hover) p {
+    visibility: visible;
   }
-  #edited .details label {
-    margin-bottom: 6px;
+  .gif p:hover {
+    visibility: visible;
+  }
+  .gif a {
+    color: var(--color-button-outline);
   }
 
   #errors {

@@ -23,15 +23,12 @@ export interface Crop {
   bottom?: number;
 }
 
-export interface EditedVideoParams {
+export interface GifOutputParams {
   crop: Crop;
   trim: {
     start: number;
     end: number;
   };
-}
-
-export interface GifOutputSettings {
   colors: number;
   fps: number;
 }
@@ -100,7 +97,7 @@ export async function loadVideo(path: string) {
  */
 export async function createEditedVideo(
   sourcePath: string,
-  edits: EditedVideoParams
+  edits: GifOutputParams
 ): Promise<string> {
   const sourceMetadata = await loadVideoMetadata(sourcePath);
   const sourceParts = pathParts(sourcePath);
@@ -109,10 +106,10 @@ export async function createEditedVideo(
   let filters: string = "";
   let widthAfterCrop = sourceMetadata.width;
   if (
-    !edits.crop.left ||
-    !edits.crop.right ||
-    !edits.crop.top ||
-    !edits.crop.bottom
+    edits.crop.left ||
+    edits.crop.right ||
+    edits.crop.top ||
+    edits.crop.bottom
   ) {
     widthAfterCrop =
       sourceMetadata.width - orZero(edits.crop.left) - orZero(edits.crop.right);
@@ -141,6 +138,8 @@ export async function createEditedVideo(
     ffmpegArgs.push("-to", end);
     outNameSuffix += `-${end}`;
   }
+  ffmpegArgs.push("-an"); // Remove audio
+
   const outDir = `${await workingDir()}${sourceParts.name}`;
   console.log("Creating directory", outDir);
   await mkdir(outDir, { recursive: true });
@@ -148,7 +147,7 @@ export async function createEditedVideo(
   let outPath = `${outDir}${sep()}${sourceParts.name}${outNameSuffix.replaceAll(
     ":",
     "."
-  )}.${sourceParts.ext}`;
+  )}.mp4`;
   ffmpegArgs.push(outPath);
   console.log("Preparing to run ffmpeg with args", ffmpegArgs);
   const ffmpegResult = await Command.create("ffmpeg", ffmpegArgs).execute();
@@ -165,7 +164,7 @@ export async function createEditedVideo(
 
 export async function createGif(
   sourcePath: string,
-  settings: GifOutputSettings
+  settings: GifOutputParams
 ): Promise<string> {
   const palettePath = await computeGifOutputPath(sourcePath, settings, "png");
   const gifPath = await computeGifOutputPath(sourcePath, settings);
@@ -232,7 +231,7 @@ function secondsToFfmpegTimeString(seconds: number | string): string {
   return timeString;
 }
 
-function pathParts(path: string): {
+export function pathParts(path: string): {
   dir: string;
   base: string;
   name: string;
@@ -257,13 +256,15 @@ export async function workingDir(): Promise<string> {
 
 export function computeDefaultVideoEditParams(
   videoMetadata?: VideoMetadata
-): EditedVideoParams {
+): GifOutputParams {
   return {
     crop: {},
     trim: {
       start: 0,
       end: videoMetadata?.duration || 0,
     },
+    fps: videoMetadata?.fps || 30,
+    colors: 90,
   };
 }
 
@@ -272,7 +273,7 @@ export function computeDefaultVideoEditParams(
  */
 async function computeGifOutputPath(
   sourcePath: string,
-  config: GifOutputSettings,
+  config: GifOutputParams,
   extension = "gif"
 ) {
   const sourceParts = pathParts(sourcePath);
@@ -281,14 +282,24 @@ async function computeGifOutputPath(
     if (!value) {
       continue;
     }
-    suffix += `-${field}.${value}`;
+    suffix += `-${field}`;
+    if (typeof value === "object") {
+      for (const [innerField, innerValue] of Object.entries(value)) {
+        if (!innerValue) continue;
+        suffix += `.${innerField}.${innerValue}`;
+      }
+    } else {
+      suffix += `.${value}`;
+    }
   }
   return `${await workingDir()}${sourceParts.name}${suffix}.${extension}`;
 }
 
-export async function pathToObjectUrl(path: string): Promise<string> {
+export async function pathToObjectUrl(
+  path: string
+): Promise<{ data: Uint8Array; objectUrl: string }> {
   const data = await readFile(path);
-  return URL.createObjectURL(new Blob([data]));
+  return { data, objectUrl: URL.createObjectURL(new Blob([data])) };
 }
 
 export function orZero(val: number | undefined | null): number {
