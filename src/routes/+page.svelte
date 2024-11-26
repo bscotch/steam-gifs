@@ -1,6 +1,7 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
   import Bytes from "../lib/Bytes.svelte";
+  import { version } from "../lib/constants.js";
   import EmptyVideo from "../lib/EmptyVideo.svelte";
   import GithubIcon from "../lib/icons/GithubIcon.svelte";
   import SteamVideo from "../lib/SteamVideo.svelte";
@@ -355,9 +356,10 @@
   {/key}
   <footer>
     <a
-      title="Visit this project on GitHub"
-      href="https://github.com/bscotch/steam-gifs"
+      title="View Releases"
+      href="https://github.com/bscotch/steam-gifs/releases"
     >
+      <span>v{version}</span>
       <GithubIcon />
     </a>
   </footer>
@@ -474,5 +476,11 @@
     position: fixed;
     bottom: 0;
     right: 0.25rem;
+  }
+  footer a {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
   }
 </style>
