@@ -38,12 +38,6 @@ To run the project locally, you'll need to follow Tauri's setup instructions, ha
 
 Note that Tauri is a cross-platform system and this project doesn't use any Windows-only features, so you should be able to compile it for Linux or Mac. It seems to work when compiled for Linux, but I haven't tried it on MacOS.
 
-## Contributing
-
-Feel free to fork this project and make your own modifications. If those changes either have tests or aren't likely to need long-term maintenance, submit a Pull Request! For complex changes, make an [Issue](https://github.com/bscotch/steam-gifs/issues) first for discussion.
-
-I'd definitely appreciate help automating releases, in particular for non-Windows builds.
-
 ## How it works
 
 This app is just a GUI on top of some ffmpeg transformations. Those commands look something like this:
@@ -63,3 +57,14 @@ ffmpeg -y -i source-video_steam.mp4 -i palette.png -filter_complex "[0:v]fps=15[
 ```
 
 You can run related commands yourself without needing this app at all. It just gets tedious and error-prone: this app takes care of the annoying bits for you.
+
+## Contributing
+
+Feel free to fork this project and make your own modifications. If those changes either have tests or aren't likely to need long-term maintenance, submit a Pull Request! For complex changes, make an [Issue](https://github.com/bscotch/steam-gifs/issues) first for discussion.
+
+Things I'd love contributions for:
+
+- Identifying and fixing any issues when compiled on Linux
+- Identifying and fixing any issues when compiled on MacOS
+- Automatic builds added to releases for Linux and MacOS
+- Icons (non-AI, with proper licensing). This app just uses the default Tauri icons at the moment.

@@ -1,6 +1,6 @@
 {
-  "name": "@bscotch/steam-gifs-gui",
-  "version": "0.1.0",
+  "name": "@bscotch/steam-gifs",
+  "version": "0.4.0",
   "description": "",
   "type": "module",
   "private": true,
