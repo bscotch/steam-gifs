@@ -95,15 +95,18 @@
         pathToObjectUrl(outputGifPath),
         pathToObjectUrl(editedVideoPath),
       ]);
-      createdGifs.push({
-        gifPath: outputGifPath,
-        gifObjectUrl: gifData.objectUrl,
-        gifBytes: gifData.data.length,
-        videoPath: editedVideoPath,
-        videoObjectUrl: videoData.objectUrl,
-        videoBytes: videoData.data.length,
-        settings,
-      });
+      createdGifs = [
+        {
+          gifPath: outputGifPath,
+          gifObjectUrl: gifData.objectUrl,
+          gifBytes: gifData.data.length,
+          videoPath: editedVideoPath,
+          videoObjectUrl: videoData.objectUrl,
+          videoBytes: videoData.data.length,
+          settings,
+        },
+        ...createdGifs,
+      ];
     });
     awaitingGif = false;
   }
@@ -295,22 +298,35 @@
 
     {#if createdGifs.length}
       <ul id="gifs" class="reset">
-        {#each createdGifs as gif (gif.gifPath)}
+        {#each createdGifs as gif, i (gif)}
           <li class="gif">
             <img src={gif.gifObjectUrl} alt="GIF" />
             <p>
-              💾 <a
+              💾&#xFE0E; <a
+                title="Download GIF"
                 href={gif.gifObjectUrl}
                 download={pathParts(gif.gifPath).base}
               >
                 GIF (<Bytes bytes={gif.gifBytes} />)
               </a>
               <a
+                title="Download MP4 (Higher Quality)"
                 href={gif.videoObjectUrl}
                 download={pathParts(gif.videoPath).base}
               >
                 MP4 (<Bytes bytes={gif.videoBytes} />)
               </a>
+              <button
+                class="delete"
+                title="Delete"
+                onclick={() => {
+                  createdGifs = createdGifs.filter((_, idx) => {
+                    return i !== idx;
+                  });
+                }}
+              >
+                ❌&#xFE0E;
+              </button>
             </p>
           </li>
         {/each}
@@ -432,6 +448,10 @@
   }
   .gif a {
     color: var(--color-button-outline);
+  }
+  .gif button.delete {
+    border: none;
+    padding: 0;
   }
   #errors {
     color: red;

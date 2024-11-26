@@ -53,7 +53,14 @@
 
 <!-- svelte-ignore a11y_media_has_caption -->
 <div class="viewer">
-  <video bind:this={el} controls loop muted style={`width:${sourceWidth}px;`}>
+  <video
+    bind:this={el}
+    controls
+    loop
+    autoplay
+    muted
+    style={`width:${sourceWidth}px;`}
+  >
     {#if src}
       <source {src} type={`video/${path.replace(/^.*\.([^.]+)$/, "$1")}`} />
     {/if}
