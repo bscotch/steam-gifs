@@ -60,10 +60,10 @@ export async function loadVideoMetadata(path: string): Promise<VideoMetadata> {
     "v:0",
     path,
   ]).execute();
-  console.log("ffprobe result", ffprobeResult);
+  console.log("ffprobe error", ffprobeResult.stderr);
   assert(
     ffprobeResult.code === 0,
-    "Failed to get video metadata. Make sure ffprobe is available in your PATH."
+    `Failed to get video metadata. See console for ffprobe error output.`
   );
   const metadata = JSON.parse(ffprobeResult.stdout);
   assert("streams" in metadata, "No video streams found in metadata");
@@ -160,7 +160,7 @@ export async function createEditedVideo(
   }
   assert(
     ffmpegResult.code === 0,
-    "Failed to create edited video. Make sure ffmpeg is available in your PATH."
+    "Failed to create edited video. Check the console for ffmpeg error output."
   );
   return outPath;
 }
@@ -188,7 +188,7 @@ export async function createGif(
   console.log("ffmpeg result", ffmpegResult);
   assert(
     ffmpegResult.code === 0,
-    "Failed to create palette. Make sure ffmpeg is available in your PATH."
+    "Failed to create palette. Check the console for ffmpeg error output."
   );
 
   // Create the GIF
@@ -206,7 +206,7 @@ export async function createGif(
   console.log("ffmpeg result", ffmpegResult);
   assert(
     ffmpegResult.code === 0,
-    "Failed to create GIF. Make sure ffmpeg is available in your PATH."
+    "Failed to create GIF. Check the console for ffmpeg error output."
   );
   return gifPath;
 }
