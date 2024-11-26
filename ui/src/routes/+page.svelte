@@ -2,6 +2,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import Bytes from "../lib/Bytes.svelte";
   import EmptyVideo from "../lib/EmptyVideo.svelte";
+  import GithubIcon from "../lib/icons/GithubIcon.svelte";
   import SteamVideo from "../lib/SteamVideo.svelte";
   import {
     computeDefaultVideoEditParams,
@@ -316,19 +317,26 @@
       </ul>
     {/if}
   {/key}
+  <!-- LOGS -->
+  <section id="errors">
+    {#each logs as log}
+      <p>{log}</p>
+    {/each}
+  </section>
   <footer>
-    <!-- LOGS -->
-    <section id="errors">
-      {#each logs as log}
-        <p>{log}</p>
-      {/each}
-    </section>
+    <a
+      title="Visit this project on GitHub"
+      href="https://github.com/bscotch/steam-gifs"
+    >
+      <GithubIcon />
+    </a>
   </footer>
 </main>
 
 <style>
   main {
     /* Center everything */
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -425,8 +433,12 @@
   .gif a {
     color: var(--color-button-outline);
   }
-
   #errors {
     color: red;
+  }
+  footer {
+    position: fixed;
+    bottom: 0;
+    right: 0.25rem;
   }
 </style>
