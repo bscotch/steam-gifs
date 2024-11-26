@@ -113,13 +113,16 @@ export async function createEditedVideo(
   ) {
     widthAfterCrop =
       sourceMetadata.width - orZero(edits.crop.left) - orZero(edits.crop.right);
-    const height =
+    let heightAfterCrop =
       sourceMetadata.height -
       orZero(edits.crop.top) -
       orZero(edits.crop.bottom);
-    const cropString = `${widthAfterCrop}:${height}:${edits.crop.left || 0}:${
-      edits.crop.top || 0
-    }`;
+    // Width/height must be divisible by 2, so round down if needed
+    widthAfterCrop -= widthAfterCrop % 2;
+    heightAfterCrop -= heightAfterCrop % 2;
+    const cropString = `${widthAfterCrop}:${heightAfterCrop}:${
+      edits.crop.left || 0
+    }:${edits.crop.top || 0}`;
     filters += `crop=${cropString},`;
     outNameSuffix += `-${cropString}`;
   }
