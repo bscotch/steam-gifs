@@ -11,7 +11,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
-    "version": "node scripts/version-sync.mjs"
+    "version": "node scripts/version-sync.mjs && git add -A"
   },
   "license": "MIT",
   "dependencies": {
